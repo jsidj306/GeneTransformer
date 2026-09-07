@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Data（原始下载 + 预处理后的表达矩阵，体积大、可重建）
+data/raw/
+data/processed/
+
+# Model & results artifacts
+*.pt
+*.pth
+*.npy
+results/checkpoints/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
