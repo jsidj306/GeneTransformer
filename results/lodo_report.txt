@@ -1,0 +1,14 @@
+Baseline LODO vs random-split (macro-F1)
+============================================================
+
+[leave_one_dataset_out]
+  RandomForest   macroF1 0.0000 +/- 0.0000
+  SVM            macroF1 0.0000 +/- 0.0000
+
+[random_split_control]
+  RandomForest   macroF1 1.0000 +/- 0.0000
+  SVM            macroF1 1.0000 +/- 0.0000
+
+Interpretation: LODO holds out a completely unseen cancer type (batch == 
+class confound), so a near-zero LODO macro-F1 vs ~1.0 random-split macro-F1 
+demonstrates that the earlier 100% accuracy was batch leakage, not biology.

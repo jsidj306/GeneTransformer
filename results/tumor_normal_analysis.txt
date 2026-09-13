@@ -1,0 +1,40 @@
+Tumor vs normal — baseline analysis
+============================================================
+
+[1] Ranking (train AUC vs held-out AUC)
+  held_out=GSE31210  RandomForest  train_AUC=1.000 test_AUC=0.946
+  held_out=GSE31210  SVM           train_AUC=1.000 test_AUC=0.969
+  held_out=GSE39582  RandomForest  train_AUC=1.000 test_AUC=0.893
+  held_out=GSE39582  SVM           train_AUC=0.998 test_AUC=0.965
+  held_out=GSE45827  RandomForest  train_AUC=1.000 test_AUC=0.988
+  held_out=GSE45827  SVM           train_AUC=0.998 test_AUC=1.000
+
+[2] Score shift (RF) — median score per class, train vs test
+  (large train->test shift on tumor scores explains threshold failure)
+  held_out=GSE31210  train tumor=1.000 train normal=0.000 | test tumor=0.910 test normal=0.845 | threshold=0.59
+  held_out=GSE39582  train tumor=0.990 train normal=0.000 | test tumor=0.925 test normal=0.855 | threshold=0.43
+  held_out=GSE45827  train tumor=1.000 train normal=0.000 | test tumor=0.925 test normal=0.855 | threshold=0.45
+
+[3] Top 20 discriminating genes (RF importance, mean over folds)
+  TPX2           0.01821
+  ECT2           0.01705
+  CLEC3B         0.01254
+  PPAT           0.01215
+  ZSWIM6         0.01096
+  SEMA6D         0.01086
+  ATP8B1         0.01083
+  PTPN21         0.01080
+  UBE2T          0.01062
+  SLC26A2        0.01058
+  SLC7A5         0.01021
+  SCARA5         0.00971
+  UBE2C          0.00959
+  BOP1           0.00943
+  C1orf115       0.00939
+  PTGER4         0.00903
+  BTNL9          0.00872
+  NFE2L3         0.00870
+  MMP11          0.00838
+  PDE9A          0.00835
+
+Interpretation: test AUC >> 0.5 (and often ~train AUC) shows the model genuinely ranks tumor vs normal cross-platform; the score shift explains why a fixed threshold degenerates. Top genes should be checked against known cancer biology (proliferation / immune / tissue markers).

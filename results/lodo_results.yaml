@@ -1,0 +1,70 @@
+leave_one_dataset_out:
+  RandomForest:
+    accuracy:
+      mean: 0.0
+      per_fold:
+      - 0.0
+      - 0.0
+      - 0.0
+      std: 0.0
+    f1:
+      mean: 0.0
+      per_fold:
+      - 0.0
+      - 0.0
+      - 0.0
+      std: 0.0
+  SVM:
+    accuracy:
+      mean: 0.0
+      per_fold:
+      - 0.0
+      - 0.0
+      - 0.0
+      std: 0.0
+    f1:
+      mean: 0.0
+      per_fold:
+      - 0.0
+      - 0.0
+      - 0.0
+      std: 0.0
+random_split_control:
+  RandomForest:
+    accuracy:
+      mean: 1.0
+      per_fold:
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      std: 0.0
+    f1:
+      mean: 1.0
+      per_fold:
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      std: 0.0
+  SVM:
+    accuracy:
+      mean: 1.0
+      per_fold:
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      std: 0.0
+    f1:
+      mean: 1.0
+      per_fold:
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      std: 0.0

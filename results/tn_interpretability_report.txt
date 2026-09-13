@@ -1,0 +1,47 @@
+Tumor/normal Transformer interpretability (SHAP + attention)
+============================================================
+
+[GSE31210]  test normals=15 tumors=15
+  Top SHAP  : PLEKHH1, NEDD4, ZNF607, LOC439911, IRF2BP2, RNF182, SCML1, BFSP1, CD83, GBP5, PCOLCE2, DKK1, JAM2, GGTLC1, KLHDC1
+  Top attend: EDIL3, ZNF667-AS1, SETBP1, CHST15, PLEKHH1, LOC439911, JMJD6, LOC101929886, FAM120C, C11orf54, NCEH1, RASD1, FAXDC2, KLHDC1, ANXA9
+
+[GSE39582]  test normals=15 tumors=15
+  Top SHAP  : GALNT7, SLC44A5, SRPX, GPR110, NQO1, TOX3, SPP1, LINC00467, SLCO5A1, DEPDC1B, SULF1, ETV4, IGLC1, MUC5B, MS4A1
+  Top attend: DQ592442, SULF1, SLC22A18, MUC5B, TPX2, C2CD4A, CDKN1C, AK021804, CGNL1, C2orf40, SYNPO2, CR936796, PLA2G2D, CEACAM1, HES6
+
+[GSE45827]  test normals=11 tumors=19
+  Top SHAP  : CST1, GPR110, SCARA5, ZNF43, LCN2, CAPN9, DNAJC12, SOSTDC1, TMPRSS4, CDH3, SGPP2, RUNDC3B, AFAP1-AS1, VSIG2, SRD5A1
+  Top attend: VSIG2, TMPRSS4, SCARA5, SOSTDC1, LINC00959, FAM110C, ABCA8, HINT3, SOCS6, MYBL2, ARHGAP44, CRABP2, SIDT1, LOC102724870, FLJ13744
+
+Aggregate top genes (rank-based mean over folds, SHAP + attention)
+------------------------------------------------------------
+ZNF521, PFKFB3, COL4A5, LPL, AFAP1-AS1, CDO1, DPT, LCN2, COL11A1, ABCA8, ACADSB, CLTC, C2CD4A, EBF1, FLJ13744, LEPR, AR, EGR3, CA4, DCN
+
+Overlap with RF proliferation signature (tumor_normal_top_genes.csv)
+  gene  : Transformer SHAP-rank / attn-rank (n_folds)
+  TPX2    : SHAP-rank 1504 / attn-rank 888 (n_folds=2)
+  ECT2    : SHAP-rank 3158 / attn-rank 1796 (n_folds=1)
+  CLEC3B  : SHAP-rank 1620 / attn-rank 587 (n_folds=3)
+  PPAT    : SHAP-rank 2469 / attn-rank 972 (n_folds=2)
+  ZSWIM6  : SHAP-rank 853 / attn-rank 2102 (n_folds=1)
+  SEMA6D  : SHAP-rank 2377 / attn-rank 2272 (n_folds=2)
+  ATP8B1  : SHAP-rank 1919 / attn-rank 663 (n_folds=1)
+  PTPN21  : SHAP-rank 2458 / attn-rank 602 (n_folds=1)
+  UBE2T   : SHAP-rank 1072 / attn-rank 406 (n_folds=2)
+  SLC26A2 : SHAP-rank 2118 / attn-rank 2140 (n_folds=2)
+  SLC7A5  : SHAP-rank 948 / attn-rank 1006 (n_folds=2)
+  SCARA5  : SHAP-rank 773 / attn-rank 1674 (n_folds=3)
+  UBE2C   : SHAP-rank 1020 / attn-rank 1178 (n_folds=2)
+  BOP1    : SHAP-rank 3233 / attn-rank 864 (n_folds=2)
+  C1orf115: SHAP-rank 1357 / attn-rank 1708 (n_folds=1)
+
+Method notes:
+  - SHAP = Deep SHAP (Gradient x Input, background = stratified train mean),
+    attributed to logit[tumor]-logit[normal] (the tumor-vs-normal decision).
+  - Attention = mean [CLS]->gene self-attention across layers/heads/samples.
+  - Aggregation = per-gene mean RANK across folds (1 = most important),
+    averaged over the two methods; absent-from-fold genes get the worst
+    rank, so the consensus rewards genes consistent across platforms.
+  - Both are inference-only (no retraining), run on CPU from local checkpoints.
+  - HVG selects genes per fold on TRAIN variance, so a gene may be absent
+    from some folds (n_folds < 3) -- such genes are penalized in the rank.

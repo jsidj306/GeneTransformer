@@ -4,14 +4,27 @@
 data:
   raw_dir: data/raw
   processed_dir: data/processed
-  # Three cancer datasets (GEO GSE ids are placeholders -- replace with real ids when downloading)
+  gene_mapping: true          # map probes -> gene symbols (GPL570), inner-join on genes
+  # Three cancer datasets. NOTE: each dataset is a single cancer type, so batch
+  # (GSE) and class are perfectly confounded -- see evaluation.split below.
   datasets:
-    BRCA: GSE_BRCA_ID
-    LUAD: GSE_LUAD_ID
-    COAD: GSE_COAD_ID
+    BRCA: GSE45827
+    LUAD: GSE31210
+    COAD: GSE39582
+
+preprocess:
+  log_base: 2                 # applied per-dataset at assembly (auto-detects linear vs log2)
+  batch_correction: none      # "combat" | none. Kept OFF by default: with batch==class,
+                              # batch-only ComBat strips the (confounded) class signal and is
+                              # ill-defined for the novel held-out batch. See
+                              # src/cross_dataset.combat_correct and src/batch_diagnosis.py.
+  combat_ref_batch: true      # if combat is enabled: fit on TRAIN batches only
+  # NOTE: the cancer-type covariate is NOT passed to ComBat -- with the 1:1
+  # batch<->class confound it is collinear with the batch indicator (singular
+  # design matrix). See src/cross_dataset.combat_correct.
 
 model:
-  n_genes: 5000          # number of genes after feature selection (DEG / highly-variable genes)
+  n_genes: 5000          # number of genes after HVG selection (fit on train only)
   d_model: 128           # gene embedding dimension
   n_layers: 2            # transformer encoder layers
   n_heads: 4             # multi-head attention heads
@@ -28,7 +41,21 @@ training:
   lr_patience: 5         # ReduceLROnPlateau patience
 
 evaluation:
-  test_size: 0.2         # hold-out test fraction
-  cv_folds: 5            # k-fold cross-validation
+  split: leave_one_dataset_out   # PRIMARY protocol: hold out a whole GSE (unseen class)
+  test_size: 0.2                 # legacy; only used by the random-split control
+  cv_folds: 5                    # folds for the random-split control / batch diagnosis
+
+tumor_normal:
+  # Binary tumor-vs-normal task (each GSE contains BOTH classes; LODO is honest).
+  # Class order: 0=normal (minority, ~50 samples), 1=tumor (majority, ~922).
+  classes: [normal, tumor]
+  # Cost-sensitive learning (Plan A): upweight the rare 'normal' class. Under
+  # ~922:50 imbalance a ~18:1 weight ratio stops the model collapsing to
+  # "predict tumor always" and helps resist cross-platform threshold migration.
+  class_weight: {normal: 18.0, tumor: 1.0}
+  # PRIMARY, threshold-free metrics under extreme imbalance. PR-AUC is more
+  # sensitive than ROC-AUC when positives (normals) are rare; accuracy / F1 are
+  # demoted to diagnostic only.
+  primary_metric: pr_auc
 
 seed: 42                 # global random seed (python / numpy / torch)

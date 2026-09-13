@@ -1,0 +1,12 @@
+batch_identity_accuracy_after_combat:
+  mean: 0.9797056863046713
+  std: 0.005579364061458991
+batch_identity_accuracy_before_combat:
+  mean: 1.0
+  std: 0.0
+cancer_identity_accuracy:
+  mean: 1.0
+  std: 0.0
+note: batch and cancer are 1:1 confounded, so both are trivially predictable before
+  ComBat; batch-only ComBat removes the batch (and thus class) signal. Only leave-one-dataset-out
+  reveals the confound.

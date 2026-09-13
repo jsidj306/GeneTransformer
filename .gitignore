@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+.pytest_cache/
 
 # Data（原始下载 + 预处理后的表达矩阵，体积大、可重建）
 data/raw/
@@ -19,3 +20,11 @@ results/checkpoints/
 # OS
 .DS_Store
 Thumbs.db
+
+# Scratch / one-off dev artifacts (not part of the deliverable)
+/scratch/
+*.npz
+*.zip
+/*.png
+/GeneTransformer/
+results/legacy_random_split/

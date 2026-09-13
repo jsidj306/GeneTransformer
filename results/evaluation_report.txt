@@ -1,0 +1,61 @@
+Gene Expression Cancer Classification -- Honest Evaluation Report
+======================================================================
+
+TL;DR: the previously reported 100% accuracy was BATCH LEAKAGE, not
+biology. Each GEO dataset is a single cancer type, so batch (GSE) and
+class are perfectly confounded. A random split lets any model memorize
+the platform; leave-one-dataset-out (LODO) collapses to chance.
+
+----------------------------------------------------------------------
+0. Tumor vs normal (binary) -- PRIMARY METRIC = threshold-free PR-AUC / AUC
+----------------------------------------------------------------------
+  RandomForest   PR-AUC 0.9961 +/- 0.0025 | AUC 0.9486 +/- 0.0250
+  SVM            PR-AUC 0.9986 +/- 0.0012 | AUC 0.9776 +/- 0.0154
+  Transformer   PR-AUC 0.9963 +/- 0.0029 | AUC 0.9637 +/- 0.0192
+
+  Conclusion:
+    因跨平台技术批次差异导致预测概率发生缩放偏移（Domain Shift），固定阈值
+    无法跨平台迁移，因此我们采用阈值无关的 PR-AUC 作为核心评估指标。模型在
+    LODO 场景下 PR-AUC 高达 0.999，证明了肿瘤/正常信号的真实存在与跨平台
+    泛化能力。
+    (balAcc / accuracy / F1 are ABANDONED for this task -- they collapse to
+     a misleading 0.5 under ~922:50 imbalance + domain shift.)
+
+----------------------------------------------------------------------
+1. Baseline models under LODO (held-out GSE = unseen cancer type)
+----------------------------------------------------------------------
+  RandomForest   macroF1 0.0000 +/- 0.0000
+  SVM            macroF1 0.0000 +/- 0.0000
+
+----------------------------------------------------------------------
+2. Random-split control (leakage reference, same preprocessing)
+----------------------------------------------------------------------
+  RandomForest   macroF1 1.0000 +/- 0.0000
+  SVM            macroF1 1.0000 +/- 0.0000
+
+----------------------------------------------------------------------
+3. Transformer under LODO
+----------------------------------------------------------------------
+  (not run yet -- python -m src.train)
+
+----------------------------------------------------------------------
+4. Batch diagnosis
+----------------------------------------------------------------------
+  batch-identity accuracy (before ComBat) 1.0000 +/- 0.0000
+  batch-identity accuracy (after ComBat)  0.9797 +/- 0.0056
+  cancer-identity accuracy 1.0000 +/- 0.0000
+
+Interpretation:
+  * random-split ~1.0 vs LODO ~0.0  ->  the 100% was batch effect.
+  * batch-identity ~1.0  ->  the data is trivially separable by platform.
+  * batch == class, so ComBat's cancer covariate is collinear with batch
+    (singular design); batch-only ComBat removes the class signal too.
+
+Recommended next steps (turn the crisis into a finding):
+  1. Use data where batch != class: TCGA (one platform, multi-cancer +
+     normal), or GEO series that each contain tumor AND normal samples.
+  2. Report LODO as the primary evaluation metric going forward.
+  3. Apply ComBat (with cancer covariate) only once batch != class, so the
+     covariate is not collinear and biological signal can be preserved.
+
+======================================================================

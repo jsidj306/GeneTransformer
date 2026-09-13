@@ -4,7 +4,7 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.x-orange.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An **end-to-end, interpretable** deep-learning project that predicts cancer type (breast BRCA, lung LUAD, colorectal COAD) from bulk **gene expression data** using a **Transformer encoder**, and explains every prediction with **SHAP** and **attention visualization**.
+An **end-to-end, interpretable** deep-learning project that classifies **tumor vs normal** from bulk **gene expression data** using a **Transformer encoder** — evaluated rigorously under leave-one-dataset-out (LODO) — and explains every prediction with **SHAP**, **attention**, and **pathway enrichment**.
 
 > *"Not building AI for AI's sake, but building AI to answer a real biomedical question — and explain why."*
 
@@ -12,33 +12,33 @@ An **end-to-end, interpretable** deep-learning project that predicts cancer type
 
 ## ✨ Highlights
 
-- **Interpretability-first**: SHAP feature attribution + attention heatmaps answer *"why does the model think this patient is sick?"*
-- **End-to-end**: from raw expression matrix → normalization → feature selection → model → explanation.
+- **Interpretability-first**: SHAP feature attribution + `[CLS]` attention heatmaps + GO/KEGG pathway enrichment answer *"why does the model say tumor?"*
+- **Honest cross-platform evaluation**: leave-one-dataset-out (LODO) exposes batch leakage — the naive 100 % accuracy was platform, not biology.
+- **End-to-end**: raw expression matrix → normalization → feature selection → Transformer → explanation.
 - **Baseline comparison**: Random Forest / SVM baselines quantify the gain of the Transformer.
-- **Biology-aware features**: differential expression genes (DEG) + highly variable genes (HVG) inject domain prior.
-- **Fully reproducible**: public GEO/TCGA data, fixed random seeds, `config.yaml`-driven experiments.
+- **Fully reproducible**: public GEO data, fixed random seeds, `config.yaml`-driven experiments.
 
 ---
 
 ## 🧬 Pipeline
 
 ```
-Gene Expression Data   (GEO / TCGA: BRCA, LUAD, COAD)
+Gene Expression Data       (3 GEO platforms: tumor + normal)
         │
         ▼
-Normalization           (log2(x+1) + per-gene z-score)
+Normalization              (log2(x+1) + per-gene z-score)
         │
         ▼
-Feature Selection       (HVG top-N  /  DEG via PyDESeq2)
+Feature Selection          (per-fold HVG top-5000)
         │
         ▼
-Transformer Encoder     (Gene Embedding → multi-head self-attention → [CLS])
+Transformer Encoder        (Gene Embedding → multi-head self-attention → [CLS])
         │
         ▼
-Disease Classification  ([CLS] → MLP head → softmax)
+Tumor/Normal Classification ([CLS] → MLP head → softmax)
         │
         ▼
-Model Interpretation    (SHAP + attention heatmaps → key genes & pathways)
+Interpretation             (SHAP + [CLS] attention → consensus genes → GO/KEGG enrichment)
 ```
 
 ---
@@ -52,7 +52,7 @@ Model Interpretation    (SHAP + attention heatmaps → key genes & pathways)
 | Positional Encoding | Learnable position embedding (gene order by variance / chromosome position) |
 | `[CLS]` token | Prepended learnable token whose output summarizes the whole sample |
 | Transformer Encoder | `N` layers, multi-head self-attention, feed-forward, LayerNorm, Dropout |
-| MLP Head | `[CLS]` → Linear → ReLU → Dropout → Linear → softmax over cancer types |
+| MLP Head | `[CLS]` → Linear → GELU → Dropout → Linear → softmax over tumor/normal |
 
 ---
 
@@ -70,14 +70,17 @@ gene-transformer-disease-prediction/
 │   ├── raw/                        # raw GEO/TCGA downloads
 │   └── processed/                  # normalized sample × gene matrices + labels
 ├── src/
-│   ├── data_loader.py              # download & parse GEO/TCGA expression matrices
+│   ├── data_loader.py              # download & parse GEO expression matrices
 │   ├── preprocess.py               # normalization + feature selection
 │   ├── dataset.py                  # PyTorch Dataset / DataLoader
 │   ├── model.py                    # GeneTransformer (embedding + encoder + head)
 │   ├── train.py                    # training loop (early stopping + LR schedule)
 │   ├── evaluate.py                 # metrics, confusion matrix, ROC
 │   ├── baseline.py                 # RandomForest / SVM baselines
-│   ├── explain.py                  # SHAP + attention visualization
+│   ├── cross_dataset.py            # LODO split / batch diagnosis
+│   ├── tumor_normal.py             # binary tumor/normal dataset + training
+│   ├── explain_tn.py               # SHAP + attention (binary, inference-only)
+│   ├── enrichment.py               # GO/KEGG/Reactome enrichment via Enrichr
 │   └── utils.py                    # seed, metrics, plotting helpers
 ├── notebooks/
 │   ├── 01_data_exploration.ipynb
@@ -86,7 +89,7 @@ gene-transformer-disease-prediction/
 ├── results/
 │   ├── figures/                    # loss/AUC, confusion matrix, SHAP, attention heatmaps
 │   └── checkpoints/                # best_model.pt
-├── report/                         # technical report (Markdown/PDF)
+├── report/                         # technical report (English + 中文, Markdown)
 └── tests/                          # unit tests (pytest)
 ```
 
@@ -108,11 +111,11 @@ pip install torch                  # add --index-url for CUDA if you have a GPU
 ### 2. Download data
 
 ```bash
-# GEO example (per dataset: BRCA / LUAD / COAD)
-python -c "import GEOparse; GEOparse.get_GEO(geo='GSE_XXXXX', destdir='data/raw')"
+# Three tumor/normal platforms: GSE31210 (lung), GSE39582 (colorectal), GSE45827 (breast)
+python -c "import GEOparse; GEOparse.get_GEO(geo='GSE45827', destdir='data/raw')"
 ```
 
-Or use TCGA via `gdc-client`. See `data/README.md` for the exact accession numbers.
+See `src/data_loader.py` for the full accession list and parsing.
 
 ### 3. Preprocess (normalize + feature selection)
 
@@ -138,31 +141,63 @@ python -m src.train                 # best checkpoint saved to results/checkpoin
 python -m src.evaluate              # confusion matrix, macro-F1, ROC-AUC
 ```
 
-### 7. Explain (SHAP + attention)
+### 7. Explain (SHAP + attention) & enrich
 
 ```bash
-python -m src.explain               # SHAP summary/force plots + attention heatmaps
+python -m src.explain_tn            # SHAP summary + [CLS] attention heatmaps (binary)
+python -m src.enrichment            # GO/KEGG/Reactome enrichment of consensus genes
 ```
 
 ---
 
-## 📊 Results (example)
+## 📊 Results
 
-| Model | Accuracy | Macro-F1 | ROC-AUC |
-|---|---|---|---|
-| Random Forest | 0.87 | 0.85 | 0.93 |
-| SVM (RBF) | 0.88 | 0.86 | 0.94 |
-| **Gene Transformer** | **0.92** | **0.91** | **0.96** |
+The delivered model is a **binary tumor/normal classifier**, trained and evaluated
+**leave-one-dataset-out (LODO)** across three independent platforms (lung GSE31210,
+colorectal GSE39582, breast GSE45827). **PR-AUC / ROC-AUC are the primary,
+threshold-free metrics** (class imbalance ≈ 18:1).
 
-*Replace with your own results from `results/baseline_metrics.csv` and the Transformer evaluation.*
+| Model (LODO) | PR-AUC (mean ± std) | ROC-AUC (mean ± std) |
+|---|---|---|
+| Random Forest | 0.9961 ± 0.0025 | 0.9486 ± 0.0250 |
+| SVM (RBF) | 0.9986 ± 0.0012 | 0.9776 ± 0.0154 |
+| **Gene Transformer** | **0.9963 ± 0.0029** | **0.9637 ± 0.0192** |
+
+The Transformer reaches PR-AUC parity with SVM and exceeds the RF on ROC-AUC, while
+staying end-to-end differentiable — the property that makes the interpretation below
+possible. Hard labels use **quantile-aligned thresholds** per fold (see the
+[technical report](report/technical_report.md) · [中文报告](report/technical_report_zh.md));
+`class_weight` does *not* fix the cross-platform score shift.
 
 ---
 
 ## 🔍 Interpretability
 
-- **SHAP** (`shap.DeepExplainer`) → `summary_plot` shows which genes matter globally and how high/low expression shifts the prediction; `force_plot` explains a single patient.
-- **Attention** → per-layer attention weights are visualized as gene–gene heatmaps; the `[CLS]` row ranks the most-attended genes.
-- **Cross-validation of explanations**: genes flagged by *both* SHAP and attention are reported as the most trustworthy, then validated via GO/KEGG pathway enrichment and comparison with known cancer driver genes (e.g. *TP53*, *EGFR*, *BRCA1*).
+Two complementary, inference-only views (no retraining — run on CPU from local
+checkpoints):
+
+- **SHAP (Deep SHAP)** — Gradient × Input attribution to `logit[tumor] − logit[normal]`,
+  memory-bounded (batch=1) because self-attention over 5001 tokens is O(n²).
+- **Attention** — the `[CLS]` token's self-attention to each gene (per layer/head),
+  computed exactly from the layer's Q/K weights.
+
+The cross-fold **consensus genes** (rank-based, absent-fold-penalized) are a
+**tumor-stroma / extracellular-matrix signature**: *PFKFB3, CDO1, LCN2, COL11A1,
+DCN, DPT, CA4, COL4A5, COL10A1, FBLN2, …* — plus a metabolic component
+(PFKFB3 glycolysis, LPL, PDK4).
+
+**Pathway enrichment** (Enrichr: GO / KEGG / Reactome) confirms it — the one
+FDR-significant signal is **collagen / extracellular-matrix organization**
+(GO:CC "Collagen-Containing Extracellular Matrix" adj. p = 3.9 × 10⁻⁶; Reactome
+"Extracellular Matrix Organization" adj. p = 0.043). KEGG and GO Biological Process
+are trending but do not survive multiple-testing correction.
+
+![Pathway enrichment bubble plot](results/figures/enrichment_bubble.png)
+
+> Run it yourself: `python -m src.enrichment` (top-100 consensus genes → Enrichr),
+> `python -m src.explain_tn` (SHAP + attention across the three folds). Full
+> write-up, consensus list, and the three clearest figures: see the
+> [technical report](report/technical_report.md) · [中文报告](report/technical_report_zh.md).
 
 ---
 
