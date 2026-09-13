@@ -28,3 +28,6 @@ Thumbs.db
 /*.png
 /GeneTransformer/
 results/legacy_random_split/
+
+# Personal planning spreadsheet (keep local, never commit/upload)
+项目2.xlsx
